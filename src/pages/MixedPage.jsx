@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { handleWordProgress } from '../features/ProgressProcessor';
 import Flashcard from '../features/Flashcard';
 import DailyProgress from '../features/DailyProgress';
@@ -18,73 +18,95 @@ function MixedPage({ dailyLimit }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [shuffledWords, setShuffledWords] = useState([]);
   const [repeatedToday, setRepeatedToday] = useState(0);
+  const [error, setError] = useState(null);
+
+  const today = new Date().toISOString().split('T')[0];
+
+  const fetchLearnedIds = useCallback(async () => {
+    try {
+      const res = await fetch(BASE_URL, { headers });
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
+      return data.records
+        .filter((r) => r.fields.status === 'learned')
+        .map((r) => r.fields.wordId);
+    } catch (err) {
+      console.error('Failed to fetch from Airtable:', err);
+      setError('Failed to load words data. Please try again later.');
+      return [];
+    }
+  }, []);
+
+  const shuffle = useCallback((arr) => {
+    return [...arr].sort(() => 0.5 - Math.random());
+  }, []);
 
   useEffect(() => {
-    async function loadWords() {
-      try {
-        const res = await fetch(BASE_URL, { headers });
-        const data = await res.json();
+    let isMounted = true;
 
-        const learnedIds = data.records
-          .filter((record) => record.fields.status === 'learned')
-          .map((record) => record.fields.wordId);
+    const loadWords = async () => {
+      setError(null);
+      const learnedIds = await fetchLearnedIds();
+      if (!isMounted) return;
 
-        const filtered = words.filter(
-          (word) => !learnedIds.includes(word.id)
-        );
-
-        const shuffled = [...filtered].sort(() => 0.5 - Math.random());
-        setShuffledWords(shuffled);
-      } catch (err) {
-        console.error('Failed to fetch learned words:', err);
-        setShuffledWords([...words].sort(() => 0.5 - Math.random()));
-      }
-    }
+      const filtered = words.filter((word) => !learnedIds.includes(word.id));
+      const shuffled = shuffle(filtered);
+      setShuffledWords(shuffled);
+    };
 
     loadWords();
-  }, []);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchLearnedIds, shuffle]);
 
   useEffect(() => {
     const storedProgress = JSON.parse(localStorage.getItem('dailyProgress')) || {};
-    const today = new Date().toISOString().split('T')[0];
     const todayProgress = storedProgress[today] || [];
     setRepeatedToday(todayProgress.length);
-  }, []);
+  }, [today]);
 
-  const updateProgress = (wordId, isKnown) => {
-    if (!isKnown) return;
-
-    const today = new Date().toISOString().split('T')[0];
+  const updateProgress = useCallback((wordId) => {
     const progress = JSON.parse(localStorage.getItem('dailyProgress')) || {};
     const todayProgress = new Set(progress[today] || []);
-
     todayProgress.add(wordId);
     progress[today] = Array.from(todayProgress);
-
     localStorage.setItem('dailyProgress', JSON.stringify(progress));
     setRepeatedToday(todayProgress.size);
-  };
+  }, [today]);
 
-  const goToNextWord = () => {
-    setCurrentIndex(prev =>
+  const goToNextWord = useCallback(() => {
+    setCurrentIndex((prev) =>
       prev + 1 < shuffledWords.length ? prev + 1 : 0
     );
-  };
+  }, [shuffledWords]);
 
-  const handleKnown = async () => {
-    const wordId = shuffledWords[currentIndex].id;
+  const handleKnown = useCallback(async () => {
+    const wordId = shuffledWords[currentIndex]?.id;
+    if (!wordId) return;
     await handleWordProgress(wordId, true);
-    updateProgress(wordId, true);
+    updateProgress(wordId);
     goToNextWord();
-  };
+  }, [shuffledWords, currentIndex, updateProgress, goToNextWord]);
 
-  const handleUnknown = async () => {
-    const wordId = shuffledWords[currentIndex].id;
+  const handleUnknown = useCallback(async () => {
+    const wordId = shuffledWords[currentIndex]?.id;
+    if (!wordId) return;
     await handleWordProgress(wordId, false);
     goToNextWord();
-  };
+  }, [shuffledWords, currentIndex, goToNextWord]);
 
   const currentWord = shuffledWords[currentIndex];
+
+  if (error) {
+    return (
+      <div>
+        <h2>Mixed Practice</h2>
+        <p style={{ color: 'red' }}>{error}</p>
+      </div>
+    );
+  }
 
   if (repeatedToday >= dailyLimit) {
     return (

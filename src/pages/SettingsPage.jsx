@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import save_data from '../assets/icons/save_data.svg';
-import repeat from '../assets/icons/repeat.svg';
 
 function ResetProgressButton({ style, ...rest }) {
   const API_KEY = import.meta.env.VITE_AIRTABLE_API_KEY;
@@ -14,60 +13,95 @@ function ResetProgressButton({ style, ...rest }) {
     'Content-Type': 'application/json',
   };
 
+  const [error, setError] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+
   async function resetAllIsUsedToday() {
     try {
+      setError(null);
+      setLoading(true);
       const res = await fetch(BASE_URL, { headers });
+      if (!res.ok) throw new Error(`Failed to fetch records: ${res.status}`);
       const data = await res.json();
       const recordsToReset = data.records.filter(r => r.fields.isUsedToday);
 
       for (const record of recordsToReset) {
-        await fetch(`${BASE_URL}/${record.id}`, {
+        const patchRes = await fetch(`${BASE_URL}/${record.id}`, {
           method: 'PATCH',
           headers,
           body: JSON.stringify({
             fields: { isUsedToday: false },
           }),
         });
+        if (!patchRes.ok) throw new Error(`Failed to reset record ${record.id}: ${patchRes.status}`);
       }
     } catch (err) {
-      console.error('Failed to reset isUsedToday:', err);
+      setError(err.message || 'Failed to reset isUsedToday');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   }
 
   const handleReset = async () => {
     localStorage.removeItem('dailyProgress');
     await resetAllIsUsedToday();
-    alert('Daily progress reset!');
-    window.location.reload();
+    if (!error) {
+      alert('Daily progress reset!');
+      window.location.reload();
+    }
   };
 
   return (
-        <button
-          onClick={handleReset}
-          type="submit"
-          style={{
-            padding: '0.5rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            justifyContent: 'center',
-            width: '20', 
-            height: '20', 
-          }}
-        >
-          Reset Daily Progress
-    </button>
+    <div>
+      <button
+        onClick={handleReset}
+        type="button"
+        disabled={loading}
+        style={{
+          padding: '0.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          justifyContent: 'center',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          opacity: loading ? 0.6 : 1,
+          ...style,
+        }}
+        {...rest}
+      >
+        Reset Daily Progress
+      </button>
+      {error && <div style={{ color: 'red', marginTop: '0.5rem' }}>{error}</div>}
+    </div>
   );
 }
 
 function SettingsPage({ dailyLimit, setDailyLimit }) {
   const [inputValue, setInputValue] = useState(dailyLimit);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  const validate = (value) => {
+    const num = parseInt(value);
+    if (isNaN(num) || num <= 0) {
+      setError('Daily limit must be a number greater than 0');
+      return false;
+    } else {
+      setError('');
+      return true;
+    }
+  };
+
+  const handleChange = (e) => {
+    setInputValue(e.target.value);
+    validate(e.target.value);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const newLimit = parseInt(inputValue);
-    if (!isNaN(newLimit) && newLimit > 0) {
+    if (validate(inputValue)) {
+      const newLimit = parseInt(inputValue);
       setDailyLimit(newLimit);
       localStorage.setItem('dailyLimit', newLimit);
       navigate('/');
@@ -86,26 +120,33 @@ function SettingsPage({ dailyLimit, setDailyLimit }) {
           <input
             type="number"
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            onChange={handleChange}
             min="1"
             style={{ width: '100%', padding: '0.5rem', marginTop: '0.5rem' }}
           />
         </label>
+        {error && <div style={{ color: 'red' }}>{error}</div>}
         <button
           type="submit"
+          disabled={!!error}
           style={{
             padding: '0.5rem',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
             justifyContent: 'center',
+            opacity: error ? 0.6 : 1,
+            cursor: error ? 'not-allowed' : 'pointer',
           }}
         >
           <img src={save_data} alt="save" width={20} height={20} />
           Save
         </button>
       </form>
-      <ResetProgressButton/>
+
+      <div style={{ marginTop: '2rem' }}>
+        <ResetProgressButton />
+      </div>
     </div>
   );
 }
