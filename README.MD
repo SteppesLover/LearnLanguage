@@ -22,9 +22,8 @@ VITE_AIRTABLE_TABLE_NAME=Progress
 **How to get those?**
 1. Log in airtable:
 2. create a table in airtable.com with:
-name - Progress
-titles:
-wordId(number), status(text), repeatCount(number)
+table name - Progress
+titles: wordId(number), status(text), repeatCount(number)
 
 **3. How to get API_Key:**
 3.1 Visit the Airtable Developer Hub
