@@ -4,7 +4,6 @@ A React-based vocabulary training app that helps Russian users learn, repeat, an
 
 1. **Clone the repository:**
 
-```bash
 git clone https://github.com/SteppesLover/LearnLanguage
 cd LearnLanguage
 
