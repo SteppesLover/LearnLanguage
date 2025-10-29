@@ -1,81 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import save_data from '../assets/icons/save_data.svg';
-
-function ResetProgressButton({ style, ...rest }) {
-  const API_KEY = import.meta.env.VITE_AIRTABLE_API_KEY;
-  const BASE_ID = import.meta.env.VITE_AIRTABLE_BASE_ID;
-  const TABLE_NAME = import.meta.env.VITE_AIRTABLE_TABLE_NAME;
-
-  const BASE_URL = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}`;
-  const headers = {
-    Authorization: `Bearer ${API_KEY}`,
-    'Content-Type': 'application/json',
-  };
-
-  const [error, setError] = React.useState(null);
-  const [loading, setLoading] = React.useState(false);
-
-  async function resetAllIsUsedToday() {
-    try {
-      setError(null);
-      setLoading(true);
-      const res = await fetch(BASE_URL, { headers });
-      if (!res.ok) throw new Error(`Failed to fetch records: ${res.status}`);
-      const data = await res.json();
-      const recordsToReset = data.records.filter(r => r.fields.isUsedToday);
-
-      for (const record of recordsToReset) {
-        const patchRes = await fetch(`${BASE_URL}/${record.id}`, {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify({
-            fields: { isUsedToday: false },
-          }),
-        });
-        if (!patchRes.ok) throw new Error(`Failed to reset record ${record.id}: ${patchRes.status}`);
-      }
-    } catch (err) {
-      setError(err.message || 'Failed to reset isUsedToday');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const handleReset = async () => {
-    localStorage.removeItem('dailyProgress');
-    await resetAllIsUsedToday();
-    if (!error) {
-      alert('Daily progress reset!');
-      window.location.reload();
-    }
-  };
-
-  return (
-    <div>
-      <button
-        onClick={handleReset}
-        type="button"
-        disabled={loading}
-        style={{
-          padding: '0.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          justifyContent: 'center',
-          cursor: loading ? 'not-allowed' : 'pointer',
-          opacity: loading ? 0.6 : 1,
-          ...style,
-        }}
-        {...rest}
-      >
-        Reset Daily Progress
-      </button>
-      {error && <div style={{ color: 'red', marginTop: '0.5rem' }}>{error}</div>}
-    </div>
-  );
-}
+import ResetProgressButton from '../shared/ResetProgressButton';
+import AddWordForm from '../shared/AddWordForm';
 
 function SettingsPage({ dailyLimit, setDailyLimit }) {
   const [inputValue, setInputValue] = useState(dailyLimit);
@@ -145,8 +72,10 @@ function SettingsPage({ dailyLimit, setDailyLimit }) {
       </form>
 
       <div style={{ marginTop: '2rem' }}>
-        <ResetProgressButton />
+        <ResetProgressButton onResetComplete={() => console.log('Progress reset complete')} />
       </div>
+
+      <AddWordForm onWordAdded={(word) => console.log('Added word:', word)} />
     </div>
   );
 }

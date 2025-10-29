@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { handleWordProgress } from '../features/ProgressProcessor';
-import Flashcard from '../features/Flashcard';
+import Flashcard from '../shared/Flashcard';
 import DailyProgress from '../features/DailyProgress';
 import words from '../assets/words.json';
+import Layout from '../shared/Layout';
 
 const API_KEY = import.meta.env.VITE_AIRTABLE_API_KEY;
 const BASE_ID = import.meta.env.VITE_AIRTABLE_BASE_ID;
@@ -149,35 +150,35 @@ function RepeatPage({ dailyLimit }) {
 
   if (error) {
     return (
-      <div>
+      <Layout>
         <h2>Repeat Practice</h2>
         <p style={{ color: 'red' }}>{error}</p>
-      </div>
+      </Layout>
     );
   }
 
   if (repeatedToday >= dailyLimit) {
     return (
-      <div>
+      <Layout>
         <h2>Repeat Practice</h2>
         <p>You’ve reached your daily limit of {dailyLimit} repetitions.</p>
         <DailyProgress repeated={repeatedToday} dailyLimit={dailyLimit} />
-      </div>
+      </Layout>
     );
   }
 
   if (shuffledWords.length === 0 || !currentWord) {
     return (
-      <div>
+      <Layout>
         <h2>Repeat Practice</h2>
         <p>You’ve repeated all available words for today!</p>
         <DailyProgress repeated={repeatedToday} dailyLimit={dailyLimit} />
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <div>
+    <Layout>
       <h2>Repeat Practice</h2>
       <DailyProgress repeated={repeatedToday} dailyLimit={dailyLimit} />
       <Flashcard word={currentWord} />
@@ -185,7 +186,7 @@ function RepeatPage({ dailyLimit }) {
         <button onClick={handleKnown}>I Know</button>
         <button onClick={handleUnknown}>I Don't Know</button>
       </div>
-    </div>
+    </Layout>
   );
 }
 
